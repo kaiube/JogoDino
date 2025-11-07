@@ -1,0 +1,80 @@
+﻿using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using System.Collections.Generic;
+
+namespace DinoGame
+{
+    public class DinoGame : GameWindow
+    {
+        private Camera camera = null!;
+        private Player player = null!;
+        private Ground ground = null!;
+        private Shader shader = null!;
+
+        private List<Cactus> cactuses = new();
+        private float cactusSpawnTimer = 0f;
+
+        public DinoGame(GameWindowSettings gws, NativeWindowSettings nws)
+            : base(gws, nws) { }
+
+        protected override void OnLoad()
+        {
+            base.OnLoad();
+
+            GL.ClearColor(Color4.SkyBlue);
+            GL.Enable(EnableCap.DepthTest);
+
+            shader = new Shader("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl");
+            camera = new Camera(new Vector3(0, 2, 6), Vector3.Zero);
+            player = new Player(shader, new Vector3(0, 0.5f, 0), new Vector3(0, 1, 0));
+            ground = new Ground(shader);
+
+            cactuses.Add(new Cactus(shader, new Vector3(5, 0.5f, 0)));
+        }
+
+        protected override void OnUpdateFrame(FrameEventArgs args)
+        {
+            base.OnUpdateFrame(args);
+
+            if (KeyboardState.IsKeyDown(Keys.Escape))
+                Close();
+
+            player.Update(args.Time, KeyboardState);
+
+            cactusSpawnTimer += (float)args.Time;
+            if (cactusSpawnTimer > 2.5f)
+            {
+                cactusSpawnTimer = 0;
+                cactuses.Add(new Cactus(shader, new Vector3(5, 0.5f, 0)));
+            }
+
+            for (int i = cactuses.Count - 1; i >= 0; i--)
+            {
+                cactuses[i].Update(args.Time);
+                if (cactuses[i].Position.X < -6)
+                    cactuses.RemoveAt(i);
+            }
+        }
+
+        protected override void OnRenderFrame(FrameEventArgs args)
+        {
+            base.OnRenderFrame(args);
+
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+            Matrix4 view = camera.GetViewMatrix();
+            Matrix4 projection = camera.GetProjectionMatrix(Size.X / (float)Size.Y);
+
+            ground.Render(view, projection);
+            player.Render(view, projection);
+
+            foreach (var cactus in cactuses)
+                cactus.Render(view, projection);
+
+            SwapBuffers();
+        }
+    }
+}
